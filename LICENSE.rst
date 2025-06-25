@@ -2,7 +2,7 @@
  The knitpy licensing terms
 =============================
 
-Knitpy is licensed under the terms of the Modified BSD License (also known as
+PyMdKnit is licensed under the terms of the Modified BSD License (also known as
 New or Revised or 3-Clause BSD), as follows:
 
 - Copyright (c) 2015, Jan Schulz <jasc@gmx.net>

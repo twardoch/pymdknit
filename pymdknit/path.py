@@ -1,4 +1,3 @@
-# encoding: utf-8
 """
 Utilities for path handling.
 """
@@ -6,14 +5,13 @@ Utilities for path handling.
 # Copyright (c) IPython Development Team.
 # Distributed under the terms of the Modified BSD License.
 
-import os
-import sys
 import errno
-import shutil
+import os
 import random
+import shutil
+import sys
 
 from . import py3compat
-
 
 fs_encoding = sys.getfilesystemencoding()
 
@@ -63,13 +61,15 @@ def filefind(filename, path_dirs=None):
         path_dirs = (path_dirs,)
 
     for path in path_dirs:
-        if path == '.': path = py3compat.getcwd()
+        if path == ".":
+            path = py3compat.getcwd()
         testname = expand_path(os.path.join(path, filename))
         if os.path.isfile(testname):
             return os.path.abspath(testname)
 
-    raise IOError("File %r does not exist in any of the search paths: %r" %
-                  (filename, path_dirs) )
+    raise OSError(
+        f"File {filename!r} does not exist in any of the search paths: {path_dirs!r}"
+    )
 
 
 def expand_path(s):
@@ -87,11 +87,11 @@ def expand_path(s):
     # the $ to get (\\server\share\%username%). I think it considered $
     # alone an empty var. But, we need the $ to remains there (it indicates
     # a hidden share).
-    if os.name=='nt':
-        s = s.replace('$\\', 'IPYTHON_TEMP')
+    if os.name == "nt":
+        s = s.replace("$\\", "IPYTHON_TEMP")
     s = os.path.expandvars(os.path.expanduser(s))
-    if os.name=='nt':
-        s = s.replace('IPYTHON_TEMP', '$\\')
+    if os.name == "nt":
+        s = s.replace("IPYTHON_TEMP", "$\\")
     return s
 
 
@@ -99,6 +99,7 @@ try:
     ENOLINK = errno.ENOLINK
 except AttributeError:
     ENOLINK = 1998
+
 
 def link(src, dst):
     """Hard links ``src`` to ``dst``, returning 0 or errno.
@@ -138,7 +139,7 @@ def link_or_copy(src, dst):
             # anyway, we get duplicate files - see http://bugs.python.org/issue21876
             return
 
-        new_dst = dst + "-temp-%04X" %(random.randint(1, 16**4), )
+        new_dst = dst + f"-temp-{random.randint(1, 16**4):04X}"
         try:
             link_or_copy(src, new_dst)
         except:
@@ -156,10 +157,10 @@ def link_or_copy(src, dst):
 
 def ensure_dir_exists(path, mode=0o755):
     """ensure that a directory exists
-    
+
     If it doesn't exist, try to create it and protect against a race condition
     if another process is doing the same.
-    
+
     The default permissions are 755, which differ from os.makedirs default of 777.
     """
     if not os.path.exists(path):
@@ -169,4 +170,4 @@ def ensure_dir_exists(path, mode=0o755):
             if e.errno != errno.EEXIST:
                 raise
     elif not os.path.isdir(path):
-        raise IOError("%r exists but is not a directory" % path)
+        raise OSError("%r exists but is not a directory" % path)

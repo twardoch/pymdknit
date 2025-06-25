@@ -1,24 +1,19 @@
-from __future__ import absolute_import, unicode_literals
-
 import os
-import tempfile
 import re
+import tempfile
 from collections import OrderedDict
 
 try:
-    #py3
+    # py3
     from base64 import decodebytes
 except ImportError:
     # py2
     from base64 import decodestring as decodebytes
 
-
-
 from pypandoc import convert as pandoc
-
+from traitlets import Bool, CaselessStrEnum, Instance, List, Unicode
 # Basic things from IPython
 from traitlets.config.configurable import LoggingConfigurable
-from traitlets import Bool, Unicode, CaselessStrEnum, List, Instance
 
 from .py3compat import iteritems
 from .utils import is_iterable, is_string
@@ -26,43 +21,72 @@ from .utils import is_iterable, is_string
 TEXT, OUTPUT, CODE, ASIS = "text", "output", "code", "asis"
 
 
-IMAGE_MIMETYPE_TO_FILEEXTENSION = OrderedDict([("image/png","png"),
-                                        ("image/svg+xml","svg"),
-                                        ("image/jpeg","jpg"),
-                                        ("application/pdf","pdf")])
-IMAGE_FILEEXTENSION_TO_MIMETYPE = dict([(v,k) for k,v in iteritems(
-                                        IMAGE_MIMETYPE_TO_FILEEXTENSION)])
+IMAGE_MIMETYPE_TO_FILEEXTENSION = OrderedDict(
+    [
+        ("image/png", "png"),
+        ("image/svg+xml", "svg"),
+        ("image/jpeg", "jpg"),
+        ("application/pdf", "pdf"),
+    ]
+)
+IMAGE_FILEEXTENSION_TO_MIMETYPE = {
+    v: k for k, v in iteritems(IMAGE_MIMETYPE_TO_FILEEXTENSION)
+}
 
-MARKUP_FORMAT_CONVERTER = OrderedDict([("text/markdown", "markdown"),
-                                       ("text/x-markdown", "markdown"),
-                                       ("text/html", "html"),
-                                       ("text/latex", "latex")])
+MARKUP_FORMAT_CONVERTER = OrderedDict(
+    [
+        ("text/markdown", "markdown"),
+        ("text/x-markdown", "markdown"),
+        ("text/html", "html"),
+        ("text/latex", "latex"),
+    ]
+)
+
 
 class KnitpyOutputException(Exception):
     pass
 
+
 # this is the intersection of what matplotlib supports (eps, pdf, pgf, png, ps, raw, rgba, svg,
 # svgz) and what IPython supports ('png', 'png2x', 'retina', 'jpg', 'jpeg', 'svg', 'pdf')...
-_possible_image_formats = CaselessStrEnum(values=['pdf', 'png', 'svg'])
+_possible_image_formats = CaselessStrEnum(values=["pdf", "png", "svg"])
 
 DEFAULT_FINAL_OUTPUT_FORMATS = [
-    {"name": "html_document", "alias": "html",
-     "pandoc_export_format": "html", "file_extension": "html",
-     "accepted_image_formats": ["png", "svg"]},
-    {"name": "word_document", "alias": "docx",
-     "pandoc_export_format": "docx", "file_extension": "docx",
-     "accepted_image_formats": ["png", "svg"]},
-    {"name": "pdf_document", "alias": "pdf",
-     "pandoc_export_format": "latex", "file_extension": "pdf",
-     "accepted_image_formats": ["pdf", "png"]},
-    {"name": "latex_document", "alias": "latex",
-     "pandoc_export_format": "latex", "file_extension": "tex",
-     "accepted_image_formats": ["pdf", "png"]},
-    ]
-VALID_OUTPUT_FORMAT_NAMES = [fmt["name"]  for fmt in DEFAULT_FINAL_OUTPUT_FORMATS] + \
-                       [fmt["alias"]  for fmt in DEFAULT_FINAL_OUTPUT_FORMATS]
+    {
+        "name": "html_document",
+        "alias": "html",
+        "pandoc_export_format": "html",
+        "file_extension": "html",
+        "accepted_image_formats": ["png", "svg"],
+    },
+    {
+        "name": "word_document",
+        "alias": "docx",
+        "pandoc_export_format": "docx",
+        "file_extension": "docx",
+        "accepted_image_formats": ["png", "svg"],
+    },
+    {
+        "name": "pdf_document",
+        "alias": "pdf",
+        "pandoc_export_format": "latex",
+        "file_extension": "pdf",
+        "accepted_image_formats": ["pdf", "png"],
+    },
+    {
+        "name": "latex_document",
+        "alias": "latex",
+        "pandoc_export_format": "latex",
+        "file_extension": "tex",
+        "accepted_image_formats": ["pdf", "png"],
+    },
+]
+VALID_OUTPUT_FORMAT_NAMES = [fmt["name"] for fmt in DEFAULT_FINAL_OUTPUT_FORMATS] + [
+    fmt["alias"] for fmt in DEFAULT_FINAL_OUTPUT_FORMATS
+]
 
 DEFAULT_OUTPUT_FORMAT_NAME = "html_document"
+
 
 class FinalOutputConfiguration(LoggingConfigurable):
     """
@@ -81,15 +105,17 @@ class FinalOutputConfiguration(LoggingConfigurable):
 
     accepted_image_formats = List(
         trait=_possible_image_formats,
-        default_value=['png', 'svg'], # that's for html, which does not use pdf
+        default_value=["png", "svg"],  # that's for html, which does not use pdf
         config=False,
-        help="""The accepted image formats."""
+        help="""The accepted image formats.""",
     )
 
     # This is atomatically filled from accepted_image_formats
     accepted_image_mimetypes = List(
         config=False,
-        default_value=[IMAGE_FILEEXTENSION_TO_MIMETYPE[ifmt] for ifmt in ['png', 'jpg', 'svg']]
+        default_value=[
+            IMAGE_FILEEXTENSION_TO_MIMETYPE[ifmt] for ifmt in ["png", "jpg", "svg"]
+        ],
     )
 
     def _accepted_image_formats_changed(self, name, old, new):
@@ -106,9 +132,12 @@ class FinalOutputConfiguration(LoggingConfigurable):
             if hasattr(self, name):
                 setattr(self, name, config_value)
             else:
-                self.log.error("Unknown config for document '%s': '%s:%s'. Ignored...",
-                                      self.name, name, config_value)
-
+                self.log.error(
+                    "Unknown config for document '%s': '%s:%s'. Ignored...",
+                    self.name,
+                    name,
+                    config_value,
+                )
 
     def copy(self):
         """Copy Constructor
@@ -117,42 +146,62 @@ class FinalOutputConfiguration(LoggingConfigurable):
         """
         config = {}
         for name in self.trait_names():
-            config[name] = getattr(self,name)
+            config[name] = getattr(self, name)
         new_fod = type(self)(**config)
         return new_fod
 
-class TemporaryOutputDocument(LoggingConfigurable):
 
-    output_debug = Bool(False, config=True,
-        help="""Whether to print outputs to the (debug) log""")
+class TemporaryOutputDocument(LoggingConfigurable):
+    output_debug = Bool(
+        False, config=True, help="""Whether to print outputs to the (debug) log"""
+    )
     # TODO: put loglevel to debug of this is True...
 
-    code_startmarker = Unicode("```{}", config=True,
-                               help="Start of a code block, with language placeholder and "
-                                    "without linefeed")
-    code_endmarker = Unicode("```", config=True, help="end of a code block, without linefeed")
-    output_startmarker = Unicode("```", config=True,
-                                 help="Start of a output block, without linefeed")
-    output_endmarker = Unicode("```", config=True, help="End of a output block, without linefeed")
+    code_startmarker = Unicode(
+        "```{}",
+        config=True,
+        help="Start of a code block, with language placeholder and without linefeed",
+    )
+    code_endmarker = Unicode(
+        "```", config=True, help="end of a code block, without linefeed"
+    )
+    output_startmarker = Unicode(
+        "```", config=True, help="Start of a output block, without linefeed"
+    )
+    output_endmarker = Unicode(
+        "```", config=True, help="End of a output block, without linefeed"
+    )
 
-    error_line = Unicode("**ERROR**: {}", config=True,
-                         help="error message line, with msg placeholder and without linefeed")
+    error_line = Unicode(
+        "**ERROR**: {}",
+        config=True,
+        help="error message line, with msg placeholder and without linefeed",
+    )
 
-    export_config = Instance(klass=FinalOutputConfiguration, help="Final output document configuration")
+    export_config = Instance(
+        klass=FinalOutputConfiguration, help="Final output document configuration"
+    )
 
+    plot_mimetypes = List(
+        default_value=list(IMAGE_MIMETYPE_TO_FILEEXTENSION.keys()),
+        allow_none=False,
+        config=True,
+        help="Mimetypes, which should be handled as plots.",
+    )
 
-    plot_mimetypes = List(default_value=list(IMAGE_MIMETYPE_TO_FILEEXTENSION.keys()),
-                          allow_none=False, config=True,
-                          help="Mimetypes, which should be handled as plots.")
+    markup_mimetypes = List(
+        default_value=list(MARKUP_FORMAT_CONVERTER.keys()),
+        allow_none=False,
+        config=True,
+        help="Mimetypes, which should be handled as markeduped text",
+    )
 
-    markup_mimetypes = List(default_value=list(MARKUP_FORMAT_CONVERTER.keys()),
-                            allow_none=False, config=True,
-                            help="Mimetypes, which should be handled as markeduped text")
-
-    context = Instance(klass="knitpy.knitpy.ExecutionContext", config=False, allow_none=True)
+    context = Instance(
+        klass="pymdknit.pymdknit.ExecutionContext", config=False, allow_none=True
+    )
 
     def __init__(self, fileoutputs, export_config, **kwargs):
-        super(TemporaryOutputDocument,self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self._fileoutputs = fileoutputs
         self.export_config = export_config
         self._output = []
@@ -168,7 +217,9 @@ class TemporaryOutputDocument(LoggingConfigurable):
     def outputdir(self):
         if not os.path.isdir(self._fileoutputs):
             os.mkdir(self._fileoutputs)
-            self.log.info("Support files will be in %s", os.path.join(self._fileoutputs, ''))
+            self.log.info(
+                "Support files will be in %s", os.path.join(self._fileoutputs, "")
+            )
 
         return self._fileoutputs
 
@@ -198,7 +249,6 @@ class TemporaryOutputDocument(LoggingConfigurable):
             last_content = self._output[-1]
         if last_content[-1] != "\n":
             self._output.append("\n")
-
 
     def flush(self):
         if self.output_debug:
@@ -236,20 +286,19 @@ class TemporaryOutputDocument(LoggingConfigurable):
             self._cache_output = []
 
     def _add_to_cache(self, content, content_type):
-
         if is_string(content):
             content = [content]
         elif is_iterable(content):
             pass
         else:
-            content = [u"%s" % content]
+            content = ["%s" % content]
 
         # remove empty lines, which causes errors in _ensure_newline
         content = [line for line in content if line != ""]
 
         if self.output_debug:
             if content_type == CODE:
-                _type = "%s (%s)" % (content_type, self._cache_code_language)
+                _type = f"{content_type} ({self._cache_code_language})"
             else:
                 _type = content_type
             self.log.debug("Adding '%s': %s", _type, content)
@@ -262,7 +311,9 @@ class TemporaryOutputDocument(LoggingConfigurable):
                 # only add such a line if we are between our own generated content, i.e. between
                 # code and output or output and new code
                 _nl_between = [CODE, OUTPUT, ASIS]
-                if (self._last_content in _nl_between) and (content_type in _nl_between):
+                if (self._last_content in _nl_between) and (
+                    content_type in _nl_between
+                ):
                     self._output.append("\n")
         if content_type == CODE:
             cache = self._cache_code
@@ -299,20 +350,27 @@ class TemporaryOutputDocument(LoggingConfigurable):
         try:
             mimedata = decodebytes(mimedata.encode())
             # save as a file
-            if not self.context is None:
-                filename = u"%s-%s.%s" % (self.context.chunk_label,
-                                          self.context.chunk_plot_number,
-                                          IMAGE_MIMETYPE_TO_FILEEXTENSION[mimetype])
-                f = open(os.path.join(self.plotdir, filename), mode='w+b')
+            if self.context is not None:
+                filename = "{}-{}.{}".format(
+                    self.context.chunk_label,
+                    self.context.chunk_plot_number,
+                    IMAGE_MIMETYPE_TO_FILEEXTENSION[mimetype],
+                )
+                f = open(os.path.join(self.plotdir, filename), mode="w+b")
             else:
                 self.log.info("Context no specified: using random filename for image")
-                f = tempfile.NamedTemporaryFile(suffix="."+IMAGE_MIMETYPE_TO_FILEEXTENSION[mimetype],
-                                                prefix='plot', dir=self.plotdir, mode='w+b',
-                                                delete=False)
+                f = tempfile.NamedTemporaryFile(
+                    suffix="." + IMAGE_MIMETYPE_TO_FILEEXTENSION[mimetype],
+                    prefix="plot",
+                    dir=self.plotdir,
+                    mode="w+b",
+                    delete=False,
+                )
             f.write(mimedata)
             f.close()
-            relative_name= "%s/%s/%s" % (self.outputdir, os.path.basename(self.plotdir),
-                                         os.path.basename(f.name))
+            relative_name = "{}/{}/{}".format(
+                self.outputdir, os.path.basename(self.plotdir), os.path.basename(f.name)
+            )
             self.log.info("Written file of type %s to %s", mimetype, relative_name)
             template = "![%s](%s)"
             self.add_asis("\n")
@@ -322,24 +380,25 @@ class TemporaryOutputDocument(LoggingConfigurable):
             self.log.exception("Could not save a image")
             raise KnitpyOutputException(str(e))
 
-
     def add_markup_text(self, mimetype, mimedata):
         # workaround for some pandoc weirdness:
         # pandoc interprets html with indention as code and formats it with pre
         # So remove all linefeeds/whitespace...
         if mimetype == "text/html":
-            res= []
+            res = []
             for line in mimedata.split("\n"):
                 res.append(line.strip())
             mimedata = "".join(res)
             # pandas adds multiple spaces if one element in a column is long, but the rest is
             # short. Remove these spaces, as pandoc doesn't like them...
-            mimedata = re.sub(' +',' ', mimedata)
+            mimedata = re.sub(" +", " ", mimedata)
 
         to_format = "markdown"
         # try to convert to the current format so that it can be included "asis"
-        if not MARKUP_FORMAT_CONVERTER[mimetype] in [to_format,
-                                                     self.export_config.pandoc_export_format]:
+        if MARKUP_FORMAT_CONVERTER[mimetype] not in [
+            to_format,
+            self.export_config.pandoc_export_format,
+        ]:
             if "<table" in mimedata:
                 # There is a bug in pandoc <=1.13.2, where th in normal tr is triggers "only
                 # text" conversion.
@@ -348,9 +407,14 @@ class TemporaryOutputDocument(LoggingConfigurable):
                 mimedata = self._fix_html_tables_old_pandoc(mimedata)
 
             try:
-                self.log.debug("Converting markup of type '%s' to '%s' via pandoc...",
-                               mimetype, to_format)
-                mimedata = pandoc(mimedata, to=to_format, format=MARKUP_FORMAT_CONVERTER[mimetype])
+                self.log.debug(
+                    "Converting markup of type '%s' to '%s' via pandoc...",
+                    mimetype,
+                    to_format,
+                )
+                mimedata = pandoc(
+                    mimedata, to=to_format, format=MARKUP_FORMAT_CONVERTER[mimetype]
+                )
             except RuntimeError as e:
                 # these are pypandoc errors
                 msg = "Could not convert mime data of type '%s' to output format '%s'."
@@ -382,25 +446,23 @@ class TemporaryOutputDocument(LoggingConfigurable):
         tables = re_tables.finditer(htmlstring)
         for table in tables:
             # process the html before the match
-            result.append(htmlstring[pos:table.start()])
+            result.append(htmlstring[pos : table.start()])
             # now the table itself
-            table_html = htmlstring[table.start():table.end()]
+            table_html = htmlstring[table.start() : table.end()]
             tbody = re_tbody.search(table_html)
-            if not tbody is None:
-                result.append(table_html[0:tbody.start()])
-                tbody_html = table_html[tbody.start():tbody.end()]
-                tbody_html = tbody_html.replace("<th","<td")
+            if tbody is not None:
+                result.append(table_html[0 : tbody.start()])
+                tbody_html = table_html[tbody.start() : tbody.end()]
+                tbody_html = tbody_html.replace("<th", "<td")
                 tbody_html = tbody_html.replace("</th>", "</td>")
                 result.append(tbody_html)
-                result.append(table_html[tbody.end():])
+                result.append(table_html[tbody.end() :])
             else:
                 result.append(table_html)
             pos = table.end()
         result.append(htmlstring[pos:])
 
         return "".join(result)
-
-
 
     def add_execution_error(self, error, details=""):
         # adding an error is considered "not normal", so we make sure it is clearly visible

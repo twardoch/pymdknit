@@ -1,18 +1,15 @@
-from __future__ import absolute_import, unicode_literals
-
 __all__ = ["PythonKnitpyEngine"]
 
 LANGUAGE_ENGINES = []
 
 from traitlets.config.configurable import LoggingConfigurable
-from traitlets import Bool, Unicode, CaselessStrEnum, Instance
 
 
 class BaseKnitpyEngine(LoggingConfigurable):
     name = "<NOT_EXISTANT>"
     kernel_name = "<NOT_EXISTANT>"
     startup_lines = ""
-    language = "<NOT_EXISTANT>" # for syntax highlighting...
+    language = "<NOT_EXISTANT>"  # for syntax highlighting...
 
     @property
     def kernel(self):
@@ -32,22 +29,25 @@ class BaseKnitpyEngine(LoggingConfigurable):
 
 
 class PythonKnitpyEngine(BaseKnitpyEngine):
-
     name = "python"
     kernel_name = "python"
-    startup_lines = "# Bad things happen if tracebacks have ansi escape sequences\n" +\
-                    "%colors NoColor\n"
+    startup_lines = (
+        "# Bad things happen if tracebacks have ansi escape sequences\n"
+        + "%colors NoColor\n"
+    )
     language = "python"
 
     def get_plotting_format_code(self, formats):
         valid_formats = ["png", "jpg", "jpeg", "pdf"]
-        code = "%matplotlib inline\n" +\
-               "from IPython.display import set_matplotlib_formats\n" +\
-               "set_matplotlib_formats({0})\n"
+        code = (
+            "%matplotlib inline\n"
+            + "from IPython.display import set_matplotlib_formats\n"
+            + "set_matplotlib_formats({0})\n"
+        )
         formats = [fmt for fmt in formats if fmt in valid_formats]
         if not formats:
             raise Exception("No valid output format found! Aborting...")
 
         fmt_string = "', '".join(formats)
-        fmt_string = "'"+fmt_string+"'"
+        fmt_string = "'" + fmt_string + "'"
         return code.format(fmt_string)

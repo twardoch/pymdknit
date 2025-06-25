@@ -157,7 +157,7 @@ shown in this case (`echo=False`).
 
 If a html or similar thing is displayed via the IPython display framework, it will be 
 included 'as is', meaning that apart from `text/plain`-only output, everything else 
-will be included without marking it up as output. Knitpy automagically tries to include only
+will be included without marking it up as output. PyMdKnit automagically tries to include only
 formats which are understood by pandoc and the final output format (in some case converting the
 format to one which the final output can handle).
 

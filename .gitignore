@@ -7,7 +7,7 @@
 # kernel files, which wer enot removed after a crash
 kernel*.json
 
-# manually generated knitpy config file
+# manually generated pymdknit config file
 knitpy_config.py
 
 # ipython checkpoints/ backup copies
@@ -70,3 +70,4 @@ examples/knitpy_overview_files/figure-docx/
 examples/knitpy_overview_files/figure-pdf/
 examples/knitpy_overview_files/figure-tex/
 examples/knitpy_overview.tex
+
